@@ -1,12 +1,16 @@
-﻿using Microsoft.AspNetCore.Hosting.Server;
+﻿using Azure;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SQL_Injection_Fix.Data;
 using SQL_Injection_Fix.Entities;
 using SQL_Injection_Fix.Migrations;
+using System;
 using System.Collections.Generic;
 using System.Data;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
 using static System.Net.Mime.MediaTypeNames;
 
@@ -124,63 +128,76 @@ namespace SQL_Injection_Fix.Controllers
 
                 #region Prepared Statement Way
 
-                //// Create a DbParameter instance for the parameter
-                //var NameParameter = 
-                //    new SqlParameter("@Name", SqlDbType.NVarChar, 50 /* Size of NVarChar */);
-                //var Passwordarameter =
-                //    new SqlParameter("@Password", SqlDbType.NVarChar, 50 /* Size of NVarChar */);
 
-                //NameParameter.Value = name;
-                //Passwordarameter.Value = password;
 
-                //using (var connection = dbContext.Database.GetDbConnection())
-                //{
-                //    connection.Open();
+                // We don't need to use command.Prepare() all the time, as it depends on the context and the frequency of
+                // query execution. Here are two use cases where using prepared statements with command.Prepare() can be
+                // beneficial:
 
-                //    // Create the command and add parameters
-                //    using (var command = connection.CreateCommand())
-                //    {
-                //        command.CommandText = "SELECT * FROM Users WHERE Name = @Name AND Password = @Password";
+                // 1. Batch processing: If you are executing the same query with different parameter values multiple times
+                // within a loop or a batch processing operation, it can be more efficient to prepare the statement once
+                // using command.Prepare() and then execute it multiple times with different parameter values.
 
-                //        command.Parameters.Add(NameParameter);
-                //        command.Parameters.Add(Passwordarameter);
+                // 2. High - traffic applications: If your application is serving a large number of concurrent users and
+                // executing the same queries frequently, using prepared statements with command.Prepare() can improve
+                // performance by reducing the overhead of query compilation and optimization. In this case, you can prepare
+                // the statement once during application startup and reuse the same command object with different parameter
+                // values.
 
-                //        command.Prepare();
 
-                //        using (var reader = command.ExecuteReader())
-                //        {
-                //            if (!reader.HasRows)
-                //                return "NOT FOUND";
-                //            while (reader.Read())
-                //            {
-                //                var user = new User
-                //                {
-                //                    Name = reader.GetString(reader.GetOrdinal("Name")),
-                //                    Password = reader.GetString(reader.GetOrdinal("Password"))
-                //                };
+                // Create a DbParameter instance for the parameter
+                var NameParameter =
+                new SqlParameter("@Name", SqlDbType.NVarChar, 50 /* Size of NVarChar */);
+                var Passwordarameter =
+                new SqlParameter("@Password", SqlDbType.NVarChar, 50 /* Size of NVarChar */);
+                NameParameter.Value = name;
+                Passwordarameter.Value = password;
+                using (var connection = dbContext.Database.GetDbConnection())
+                {
+                    connection.Open();
 
-                //                result = user.Name + " " + user.Password;
-                //            }
-                //        }
+                    // Create the command and add parameters
+                    using (var command = connection.CreateCommand())
+                    {
+                        command.CommandText = "SELECT * FROM Users WHERE Name = @Name AND Password = @Password";
+                        command.Parameters.Add(NameParameter);
+                        command.Parameters.Add(Passwordarameter);
+                        command.Prepare();
 
-                //        // Change the parameter values and execute the prepared statement again
-                //        // NameParameter.Value = "Alice";
-                //        // Passwordarameter.Value = "password1";
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (!reader.HasRows)
+                                return "NOT FOUND";
+                            while (reader.Read())
+                            {
+                                var user = new User
+                                {
+                                    Name = reader.GetString(reader.GetOrdinal("Name")),
+                                    Password = reader.GetString(reader.GetOrdinal("Password"))
+                                };
 
-                //        // using (var reader = command.ExecuteReader())
-                //        // {
-                //        //     while (reader.Read())
-                //        //     {
-                //        //         var user = new User
-                //        //         {
-                //        //             Name = reader.GetString(reader.GetOrdinal("Name")),
-                //        //             Password = reader.GetString(reader.GetOrdinal("Password"))
-                //        //         };
-                //        //     }
-                //        // }
+                                result = user.Name + " " + user.Password;
+                            }
+                        }
 
-                //    }
-                //}
+                        // Change the parameter values and execute the prepared statement again
+                        // NameParameter.Value = "Alice"; //// command.Parameters["@Name"].Value = "Jane Smith";
+                        // Passwordarameter.Value = "password1";
+
+                        // using (var reader = command.ExecuteReader())
+                        // {
+                        //     while (reader.Read())
+                        //     {
+                        //         var user = new User
+                        //         {
+                        //             Name = reader.GetString(reader.GetOrdinal("Name")),
+                        //             Password = reader.GetString(reader.GetOrdinal("Password"))
+                        //         };
+                        //     }
+                        // }
+
+                    }
+                }
 
                 #endregion
             }

@@ -11,12 +11,19 @@ namespace SQL_Injection_Fix.Data
         }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer("Data Source=DESKTOP-G1Q07RP;Initial Catalog=SQL-Injection_Test;Integrated Security=True;Connect Timeout=30;Encrypt=False;Trust Server Certificate=False;Application Intent=ReadWrite;Multi Subnet Failover=False");
+            IConfigurationRoot configuration = new ConfigurationBuilder()
+               .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+               .AddJsonFile("appsettings.json")
+               .Build();
+            var ConnectionString = configuration.GetConnectionString("DefaultConnection");
+
+            optionsBuilder.UseSqlServer(ConnectionString);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
             modelBuilder.Entity<User>()
              .Property(u => u.Id)
              .ValueGeneratedOnAdd();
